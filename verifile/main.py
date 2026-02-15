@@ -1,5 +1,8 @@
 import argparse
 import sys
+import os
+
+from verifile.detector import detect_file_type
 
 def main():
     parser = argparse.ArgumentParser(
@@ -13,7 +16,18 @@ def main():
     
     args=parser.parse_args()
     filepath = args.filepath
-    print(f"Identifying and verifying file: {filepath}")
+    print(f"Identifying and verifying file {filepath}...")
+    
+    if not os.path.exists(filepath):
+        print(f"Error: File does not exist.")
+        sys.exit(1)
+    
+    if not os.path.isfile(filepath):
+        print(f"Error: Path is not a file.")
+        sys.exit(1)
+        
+    detector_result = detect_file_type(filepath, as_mime=True)
+    print(f"Detected file type: {detector_result}")
 
 if __name__ == "__main__":
     main()

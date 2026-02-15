@@ -28,6 +28,10 @@ def main():
         
     detector_result = detect_file_type(filepath, as_mime=True)
     print(f"Detected file type: {detector_result}")
+    
+    extention = os.path.splitext(filepath)
+    extention = extention[1].lower()
+    print(f"File extension: {extention}")
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@ import argparse
 import sys
 import os
 
+from verifile.hasher import calculate_hash256
 from verifile.detector import detect_file_type
 
 def main():
@@ -29,9 +30,11 @@ def main():
     detector_result = detect_file_type(filepath, as_mime=True)
     print(f"Detected file type: {detector_result}")
     
-    extention = os.path.splitext(filepath)
-    extention = extention[1].lower()
+    extention = os.path.splitext(filepath)[1].lower()
     print(f"File extension: {extention}")
+    
+    hashed_file = calculate_hash256(filepath)
+    print(f"SHA-256 hash: {hashed_file}")
 
 if __name__ == "__main__":
     main()

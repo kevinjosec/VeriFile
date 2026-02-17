@@ -1,9 +1,9 @@
 import argparse
-import sys
 import os
+import sys
 
-from verifile.hasher import calculate_hash256
 from verifile.detector import detect_file_type
+from verifile.hasher import calculate_hash256
 from verifile.reporter import print_report
 
 def main():
@@ -23,7 +23,6 @@ def main():
     if not os.path.isfile(filepath):
         print("Error: Invalid file path.")
         sys.exit(1)
-
     
     if not os.path.isfile(filepath):
         print(f"Error: Path is not a file.")
@@ -51,7 +50,3 @@ def main():
     filehash=hashed_file,
     mismatch=mismatch
 )
-
-
-if __name__ == "__main__":
-    main()

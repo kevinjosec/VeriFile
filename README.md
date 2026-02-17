@@ -11,13 +11,11 @@ It detects the true file type using magic number analysis and verifies file inte
 - Extension mismatch detection
 - Clean CLI interface
 
+## Installation
+
+pip install verifile
+
 ## Usage
 
-python -m verifile.main <file_path>
+verifile path/to/file
 
-## Roadmap
-
-- Directory scanning
-- JSON output
-- Entropy analysis
-- Malware heuristics

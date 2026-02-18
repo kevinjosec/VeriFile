@@ -11,7 +11,7 @@ def print_report(filename: str, filesize: int, extension: str, filetype: str, fi
     if mismatch:
         print(f"Signature: ❌ Mismatch Detected")
     else:
-        print(f"Signature: ✅ Match Detected")
+        print(f"Signature: ✅ No Mismatch Detected")
     print("=" * 50 + "\n")
     
     

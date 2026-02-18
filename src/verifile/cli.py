@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import mimetypes
 
 from verifile.detector import detect_file_type
 from verifile.hasher import calculate_hash256
@@ -28,25 +29,22 @@ def main():
         print(f"Error: Path is not a file.")
         sys.exit(1)
         
-    detector_result = detect_file_type(filepath, as_mime=True)    
-    extension = os.path.splitext(filepath)[1].lower()
+    detected_mime = detect_file_type(filepath, as_mime=True)
+    guessed_mime, _ = mimetypes.guess_type(filepath)
     
     mismatch = False
-    if extension:
-        ext_clean = extension.replace(".", "")
-    if "/" in detector_result:
-        mime_subtype = detector_result.split("/")[-1].lower()
-        if ext_clean != mime_subtype:
-            mismatch = True
     
+    if guessed_mime and detected_mime:
+        mismatch = guessed_mime != detected_mime
+        
     hashed_file = calculate_hash256(filepath)
     filename = os.path.basename(filepath)
     filesize = os.path.getsize(filepath)
     print_report(
     filename=filename,
     filesize=filesize,
-    extension=extension,
-    filetype=detector_result,
+    extension=guessed_mime.split("/")[-1] if guessed_mime else None,
+    filetype=detected_mime,
     filehash=hashed_file,
     mismatch=mismatch
 )

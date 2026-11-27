@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python }} / ${{ matrix.backend }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.13"]
+        backend: [puremagic]
+        include:
+          - os: ubuntu-latest
+            python: "3.13"
+            backend: libmagic
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install libmagic
+        if: matrix.backend == 'libmagic'
+        run: sudo apt-get update && sudo apt-get install -y libmagic1
+      - name: Install package
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          if [ "${{ matrix.backend }}" = "libmagic" ]; then
+            pip install -e ".[dev,libmagic]"
+          else
+            pip install -e ".[dev]"
+          fi
+      - name: Lint
+        run: ruff check src tests
+      - name: Test
+        run: pytest -q
+      - name: Smoke test CLI
+        run: verifile --version
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install build twine
+      - run: python -m build
+      - run: twine check dist/*

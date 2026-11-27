@@ -1,59 +1,101 @@
+"""Command-line interface.
+
+Exit codes:
+    0  every file checked out
+    1  a type mismatch or checksum failure was found
+    2  usage error, or a file could not be read
+"""
+
+from __future__ import annotations
+
 import argparse
-import os
 import sys
-import mimetypes
+from typing import Optional, Sequence
 
-from verifile.detector import detect_file_type
-from verifile.hasher import calculate_hash256
-from verifile.reporter import print_report
+from verifile import __version__
+from verifile.detector import BACKENDS, DetectionError, resolve_backend
+from verifile.hasher import ALGORITHMS, ChecksumFormatError, parse_checksum_file, parse_expected
+from verifile.reporter import print_json, print_text
+from verifile.scanner import analyze_file, iter_files
 
-def main():
+EXIT_OK, EXIT_PROBLEM, EXIT_ERROR = 0, 1, 2
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="VerifIle - File Identification and Verification Tool"
+        prog="verifile",
+        description="VeriFile - identify a file's real type and verify its integrity.",
+        epilog="Exit codes: 0 = clean, 1 = mismatch or checksum failure, 2 = error.",
     )
+    parser.add_argument("paths", nargs="*", metavar="PATH", help="files (or directories with -r)")
+    parser.add_argument("-r", "--recursive", action="store_true",
+                        help="scan directories recursively")
+    parser.add_argument("-a", "--algorithm", dest="algorithms", action="append",
+                        choices=ALGORITHMS, metavar="ALGO",
+                        help=f"hash algorithm, repeatable ({', '.join(ALGORITHMS)}; "
+                             "default sha256)")
+    parser.add_argument("-e", "--expected", metavar="[ALGO:]HASH",
+                        help="expected hash of a single file; algorithm inferred from length")
+    parser.add_argument("-c", "--checksums", metavar="FILE",
+                        help="verify every file listed in a sha256sum/md5sum/BSD-style file")
+    parser.add_argument("--json", action="store_true", help="machine-readable JSON output")
+    parser.add_argument("-q", "--quiet", action="store_true",
+                        help="only print files with problems")
+    parser.add_argument("--backend", choices=BACKENDS, default="auto",
+                        help="type detection engine (default: auto)")
+    parser.add_argument("-V", "--version", action="version", version=f"%(prog)s {__version__}")
+    return parser
 
-    parser.add_argument(
-        "filepath",
-        help="Path to the file to be identified and verified"
-    )
 
-    args=parser.parse_args()
-    filepath = args.filepath
-    print(f"Identifying and verifying file {filepath}...")
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    algorithms = args.algorithms or ["sha256"]
 
-    if not os.path.isfile(filepath):
-        print("Error: Invalid file path.")
-        sys.exit(1)
+    if not args.paths and not args.checksums:
+        parser.error("give at least one PATH or --checksums FILE")
+    if args.expected and (args.checksums or len(args.paths) != 1 or args.recursive):
+        parser.error("--expected works with exactly one file")
 
     try:
-        detected_mime = detect_file_type(filepath, as_mime=True)
-    except (FileNotFoundError, PermissionError, RuntimeError) as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        backend = resolve_backend(args.backend)
+    except DetectionError as e:
+        print(f"verifile: {e}", file=sys.stderr)
+        return EXIT_ERROR
 
-    guessed_mime, _ = mimetypes.guess_type(filepath)
-
-    mismatch = False
-    if guessed_mime and detected_mime:
-        mismatch = guessed_mime != detected_mime
-    elif guessed_mime is None and detected_mime:
-        mismatch = True
-
+    jobs: list[tuple[str, Optional[tuple[str, str]]]] = []
     try:
-        hashed_file = calculate_hash256(filepath)
-    except RuntimeError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        if args.expected:
+            jobs.append((args.paths[0], parse_expected(args.expected)))
+        else:
+            jobs.extend((p, None) for p in iter_files(args.paths, args.recursive))
+        if args.checksums:
+            jobs.extend((p, (algo, digest))
+                        for p, algo, digest in parse_checksum_file(args.checksums))
+    except ChecksumFormatError as e:
+        parser.error(str(e))
+    except OSError as e:
+        print(f"verifile: {args.checksums}: {e.strerror or e}", file=sys.stderr)
+        return EXIT_ERROR
 
-    filename = os.path.basename(filepath)
-    filesize = os.path.getsize(filepath)
-    file_extension = os.path.splitext(filename)[1].lstrip('.').lower() or "unknown"
+    reports = [analyze_file(path, algorithms, expected, backend) for path, expected in jobs]
 
-    print_report(
-        filename=filename,
-        filesize=filesize,
-        extension=file_extension,
-        filetype=detected_mime,
-        filehash=hashed_file,
-        mismatch=mismatch
-    )
+    if args.json:
+        print_json(reports)
+    else:
+        print_text(reports, quiet=args.quiet)
+
+    if any(r.error for r in reports):
+        return EXIT_ERROR
+    if any(r.has_problem for r in reports):
+        return EXIT_PROBLEM
+    return EXIT_OK
+
+
+def run() -> None:
+    """Console-script entry point."""
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("verifile: interrupted", file=sys.stderr)
+        sys.exit(130)

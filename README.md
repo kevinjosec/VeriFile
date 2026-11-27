@@ -1,5 +1,11 @@
 # VeriFile
 
+[![CI](https://github.com/kevinjosec/VeriFile/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinjosec/VeriFile/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/verifile)](https://pypi.org/project/verifile/)
+[![Python versions](https://img.shields.io/pypi/pyversions/verifile)](https://pypi.org/project/verifile/)
+[![Downloads](https://static.pepy.tech/badge/verifile)](https://pepy.tech/project/verifile)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 VeriFile is a command-line tool that tells you **what a file really is** and **whether it is
 the file you expect**.
 
